@@ -22,11 +22,11 @@ class DeepLabV3:
 
     def segment(self, image_path, threshold=0.5):
         """
-        Make 1 image inference
+        Make 1 image segmentation inference with the given model.
         """
         assert os.path.exists(image_path), "%s not found!" % image_path
         img = cv2.imread(image_path)
-        # shape is height, width, 3
+        # image shape is height, width, 3
         rawimgshape = img.shape[0:2]
         if rawimgshape != (args.height, args.width):
             img = cv2.resize(img, (args.width, args.height))
@@ -53,13 +53,10 @@ def main(args):
         # mask from segmentation is True or False values in each cell
         mask = dv.segment(fullname)
         img = cv2.imread(fullname).astype("uint8")
-        print(mask.shape)
-        # convert img to masked output
-        # img = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
+        # convert person, mask = True to white [255, 255, 255]
+        # and background, mask = False to black [0, 0, 0]
         img[mask] = [255, 255, 255]
         img[~mask] = [0, 0, 0]
-        print(img.shape, "img")
-        print(mask.shape)
         outname = os.path.join(args.outputfolder, basename)
         cv2.imwrite(outname, img)
         if idx % 100 == 0:
