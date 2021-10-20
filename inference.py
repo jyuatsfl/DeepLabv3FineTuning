@@ -24,14 +24,23 @@ class DeepLabV3:
         """
         Make 1 image inference
         """
+        assert os.path.exists(image_path), "%s not found!" % image_path
+        img = cv2.imread(image_path)
+        # shape is height, width, 3
+        rawimgshape = img.shape[0:2]
+        if rawimgshape != (args.height, args.width):
+            img = cv2.resize(img, (args.width, args.height))
 
-        img = cv2.imread(image_path).transpose(2, 0, 1).reshape(
-            1, 3, self.height, self.width)
+        img = img.transpose(2, 0, 1).reshape(1, 3, self.height, self.width)
         with torch.no_grad():
             pr = self.model(torch.from_numpy(img).true_divide(
                 255).type(torch.cuda.FloatTensor))
             # pr['out'] has shape like: (1, 1, 480, 640)
             mask = pr['out'].cpu().detach().numpy()[0][0]
+            if mask.shape[0:2] != rawimgshape:
+                logger.info("image resizing to raw")
+                # resize takes shape (width, height, opposite of the shape)
+                mask = cv2.resize(mask, rawimgshape[::-1])
             return (mask > threshold)
 
 
@@ -41,13 +50,16 @@ def main(args):
     imgnames = glob.glob(args.inputfolder + "/*.png")
     for idx, fullname in enumerate(imgnames):
         basename = os.path.basename(fullname)
-        img = cv2.imread(fullname)
-        assert img.shape[0:2] == (args.height, args.width), "resize image!"
         # mask from segmentation is True or False values in each cell
         mask = dv.segment(fullname)
+        img = cv2.imread(fullname).astype("uint8")
+        print(mask.shape)
         # convert img to masked output
+        # img = np.repeat(mask[:, :, np.newaxis], 3, axis=2)
         img[mask] = [255, 255, 255]
         img[~mask] = [0, 0, 0]
+        print(img.shape, "img")
+        print(mask.shape)
         outname = os.path.join(args.outputfolder, basename)
         cv2.imwrite(outname, img)
         if idx % 100 == 0:
