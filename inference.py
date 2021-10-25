@@ -38,7 +38,6 @@ class DeepLabV3:
             # pr['out'] has shape like: (1, 1, 480, 640)
             mask = pr['out'].cpu().detach().numpy()[0][0]
             if mask.shape[0:2] != rawimgshape:
-                logger.info("image resizing to raw")
                 # resize takes shape (width, height, opposite of the shape)
                 mask = cv2.resize(mask, rawimgshape[::-1])
             return (mask > threshold)
