@@ -19,6 +19,8 @@ class DeepLabV3:
         self.model.eval()
         self.width = width
         self.height = height
+        logger.info("Retrained model image height=%d, width=%d" %
+                    (height, width))
 
     def segment(self, image_path, threshold=0.5):
         """
@@ -26,12 +28,14 @@ class DeepLabV3:
         """
         assert os.path.exists(image_path), "%s not found!" % image_path
         img = cv2.imread(image_path)
-        # image shape is height, width, 3
+        # image shape is (height, width, 3)
+        # convert images to the same shape used in the model retraining!!
         rawimgshape = img.shape[0:2]
         if rawimgshape != (args.height, args.width):
             img = cv2.resize(img, (args.width, args.height))
-
         img = img.transpose(2, 0, 1).reshape(1, 3, self.height, self.width)
+        # img = img.transpose(2, 0, 1).reshape(1, 3, img.shape[0], img.shape[1])
+        logger.info("raw image shape: %s" % str(img.shape))
         with torch.no_grad():
             pr = self.model(torch.from_numpy(img).true_divide(
                 255).type(torch.cuda.FloatTensor))
@@ -46,7 +50,9 @@ class DeepLabV3:
 def main(args):
     os.makedirs(args.outputfolder, exist_ok=True)
     dv = DeepLabV3(args.modelpath, args.width, args.height)
-    imgnames = glob.glob(args.inputfolder + "/*.png")
+    imgnames = []
+    for ext in ["png", "jpg", "jpeg"]:
+        imgnames.extend(glob.glob(args.inputfolder + "/*.%s" % ext))
     for idx, fullname in enumerate(imgnames):
         basename = os.path.basename(fullname)
         # mask from segmentation is True or False values in each cell
